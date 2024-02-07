@@ -58,9 +58,13 @@ struct wjson* wjson_initialize()
 
 int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
 {
-    /* Node is empty (first element in list) */
+    /* Go to the end of the list */
+    while (wjson_node->next != NULL) wjson_node = wjson_node->next;
+
+    /* Node is empty (first element in the list) */
     struct wjson* new_node;
-    if(wjson_node->type == WJSON_TYPE_EMPTY) new_node = wjson_node;
+    if (wjson_node->type == WJSON_TYPE_EMPTY)
+        new_node = wjson_node;
     else
     {
         new_node = wjson_initialize();
@@ -81,10 +85,41 @@ int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
     if (new_node->data_string == NULL)
     {
         fprintf(stderr, "wJson: Failed to allocate memory for new wJson String.");
+        free(new_node->key);
         free(new_node->data_string);
+        return 0;
+    }
+
+    return 1;
+}
+
+int wjson_append_object(struct wjson* wjson_node, wchar_t* key, struct wjson* value)
+{
+    /* Go to the end of the list */
+    while (wjson_node->next != NULL) wjson_node = wjson_node->next;
+
+    /* Node is empty (first element in the list) */
+    struct wjson* new_node;
+    if (wjson_node->type == WJSON_TYPE_EMPTY)
+        new_node = wjson_node;
+    else
+    {
+        new_node = wjson_initialize();
+        wjson_node->next = new_node;
+        new_node->prev = wjson_node;
+    }
+
+    new_node->type = WJSON_TYPE_OBJECT;
+    new_node->key = wcsdup(key);
+    if (new_node->key == NULL)
+    {
+        fprintf(stderr, "wJson: Failed to allocate memory for new wJson Key.");
         free(new_node->key);
         return 0;
     }
+
+    /* Update data_object to value */
+    new_node->data_object = value;
 
     return 1;
 }
@@ -94,5 +129,12 @@ void wjson_test()
     struct wjson* test = wjson_initialize();
     wjson_append_string(test, L"Key1", L"Val1");
     wjson_append_string(test, L"Key2", L"Val2");
+    wjson_append_string(test, L"Key3", L"Val3");
+
+    struct wjson* test2 = wjson_initialize();
+    wjson_append_string(test2, L"2Key1", L"2Val1");
+
+    wjson_append_object(test, "Key4", test2);
+
     print_wjson_list(test);
 }

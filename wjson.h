@@ -23,7 +23,6 @@
 struct wjson
 {
     unsigned short int type;
-
     struct wjson* prev;
     struct wjson* next;
 
