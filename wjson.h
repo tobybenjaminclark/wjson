@@ -37,7 +37,7 @@ struct wjson
     };
 };
 
-void wjson_print(struct wjson* head);
+void wjson_print(struct wjson* head, int indentation);
 void wjson_test();
 
 #endif
