@@ -17,7 +17,8 @@
 #define WJSON_TYPE_NUMERICAL 2
 #define WJSON_TYPE_OBJECT 3
 #define WJSON_TYPE_BOOLEAN 4
-#define WJSON_TYPE_NULL 5
+#define WJSON_TYPE_LIST 5
+#define WJSON_TYPE_NULL 6
 
 
 struct wjson
@@ -31,10 +32,12 @@ struct wjson
         wchar_t* data_string;
         long double data_numerical;
         struct wjson* data_object;
+        struct wjson* data_list;
         bool data_bool;
     };
 };
 
+void wjson_print(struct wjson* head);
 void wjson_test();
 
 #endif
