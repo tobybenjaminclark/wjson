@@ -6,50 +6,52 @@
 
 #include "wjson.h"
 
-void wjson_print_list(struct wjson* head)
-{
-    struct wjson* current = head;
-    printf("[\n");
-    while (current != NULL)
-    {
-        printf("Type: %u\n", current->type);
-        printf("Index: %ls\n", current->key);
-
-        if (current->type == WJSON_TYPE_STRING)
-        {
-            printf("Data (String): %ls\n", current->data_string);
-        }
-        else if (current->type == WJSON_TYPE_NUMERICAL)
-        {
-            printf("Data (Numeric): %Lf\n", current->data_numerical);
-        }
-        else if (current->type == WJSON_TYPE_OBJECT)
-        {
-            printf("Data (Object): (Printing nested object)\n");
-            wjson_print(current->data_object, 0);
-        }
-        else if (current->type == WJSON_TYPE_BOOLEAN)
-        {
-            printf("Data (Boolean): %s\n", current->data_bool ? "true" : "false");
-        }
-        else if (current->type == WJSON_TYPE_LIST)
-        {
-            wjson_print_list(current->data_list);
-        }
-
-        printf(",\n");
-
-        current = current->next;
-    }
-    printf("]\n");
-}
-
 void wjson_print_indentation(int indentation)
 {
     int indentation_counter = 0;
     for(indentation_counter = 0; indentation_counter < indentation; indentation_counter++)
         wprintf(L"\t");
     return;
+}
+
+void wjson_print_list(struct wjson* head, int indentation)
+{
+    struct wjson* current = head;
+    wprintf(L"[\n");
+    while (current != NULL)
+    {
+        wjson_print_indentation(indentation + 1);
+        switch (current->type)
+        {
+            case WJSON_TYPE_NUMERICAL:
+                wprintf(L"%f", current->data_numerical);
+                break;
+            case WJSON_TYPE_STRING:
+                wprintf(L"\"%ls\"", current->data_string);
+                break;
+            case WJSON_TYPE_BOOLEAN:
+                if(current->data_bool) wprintf(L"true");
+                else wprintf(L"false");
+                break;
+            case WJSON_TYPE_OBJECT:
+                wjson_print(current->data_object, indentation + 1);
+                break;
+            case WJSON_TYPE_LIST:
+                wjson_print_list(current->data_list, indentation + 1);
+                break;
+            case WJSON_TYPE_NULL:
+                wprintf(L"null");
+                break;
+        }
+
+        /* If not the last entry */
+        if(current->next != NULL) wprintf(L",");
+        printf("\n");
+
+        current = current->next;
+    }
+    wjson_print_indentation(indentation);
+    wprintf(L"]");
 }
 
 void wjson_print(struct wjson* head, int indentation)
@@ -76,8 +78,10 @@ void wjson_print(struct wjson* head, int indentation)
                 wjson_print(current->data_object, indentation + 1);
                 break;
             case WJSON_TYPE_LIST:
+                wjson_print_list(current->data_list, indentation + 1);
                 break;
             case WJSON_TYPE_NULL:
+                wprintf(L"null");
                 break;
         }
 
@@ -537,6 +541,11 @@ void wjson_test()
     wjson_append_string(nested, L"Nested1", L"NestedVal1");
     wjson_append_string(nested, L"Nested2", L"NestedVal2");
 
+    struct wjson* list = wjson_initialize_list();
+    wjson_list_append_string(list, L"ListVal1");
+    wjson_list_append_string(list, L"ListVal2");
+
+    wjson_append_list(test, L"ListKey",list);
     wjson_append_object(test, L"Nest!", nested);
     wjson_print(test, 0);
 }
