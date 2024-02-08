@@ -6,39 +6,72 @@
 
 #include "wjson.h"
 
-int matchSequence(FILE* file, const wchar_t* sequence)
+/**
+ * @brief Matches a sequence of wide characters in the input JSON file stream.
+ *
+ * This function attempts to match the given sequence of wide characters in the input file stream.
+ * If the sequence is found, the file stream position is unchanged, and the function returns 1.
+ * If the sequence is not found, the file stream is rewound to its initial position, and the function returns 0.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @param sequence Wide character sequence to match in the input file stream.
+ * @return 1 if the sequence is successfully matched, 0 otherwise.
+ */
+int wjson_match_sequence(FILE* file, const wchar_t* sequence)
 {
     int index = 0;
     wint_t wchar;
-    wint_t buffer[1024]; // Assuming a maximum sequence length of 1023 characters
+    wint_t buffer[1024];
     int bufferIndex = 0;
 
-    // Save the current file position
+    /* Save the current file position to startPos */
     long startPos = ftell(file);
 
-    while ((wchar = fgetwc(file)) != WEOF && sequence[index] != L'\0') {
-        if (wchar != sequence[index]) {
-            // Characters do not match, put them back into the stream
-            while (bufferIndex > 0) {
+    while ((wchar = fgetwc(file)) != WEOF && sequence[index] != L'\0')
+    {
+        if (wchar != sequence[index])
+        {
+
+            /* Characters do not match, put them back into the stream */
+            while (bufferIndex > 0)
+            {
                 ungetwc(buffer[--bufferIndex], file);
             }
-            // Restore the file position to the initial position
+
+            /* Restore the file position to the initial position */
             fseek(file, startPos, SEEK_SET);
-            return 0; // Return failure
+            return 0;
         }
         buffer[bufferIndex++] = wchar;
         index++;
     }
 
-    if (sequence[index] == L'\0') {
-        return 1; // Return success if end of sequence is reached
-    } else {
-        // Restore the file position to the initial position
+    if (sequence[index] == L'\0')
+    {
+        /* Return success if end of sequence is reached */
+        return 1;
+    }
+    else
+    {
+        /* Restore the file position to the initial position & return failure. */
         fseek(file, startPos, SEEK_SET);
-        return 0; // Return failure if end of file is reached before the full sequence
+        return 0;
     }
 }
 
+
+/**
+ * @brief Parses a JSON string value from the file stream and returns a wchar_t pointer.
+ *
+ * This function reads characters from the file stream until a closing double quote is encountered,
+ * storing them in a buffer and null-terminating the string. The buffer is then returned as a wchar_t pointer.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @param wchar Initial wide character, expected to be the opening double quote of the string.
+ * @return wchar_t pointer to the parsed string.
+ * @note Memory for the string is allocated on the stack and must be used with caution.
+ * @author Toby Benjamin Clark
+ */
 wchar_t* wjson_parse_value_string(FILE* file, wint_t wchar)
 {
     wint_t buffer[1024];
@@ -52,80 +85,104 @@ wchar_t* wjson_parse_value_string(FILE* file, wint_t wchar)
     return buffer;
 }
 
-double parseDouble(FILE* file, wint_t firstChar)
+/**
+ * @brief Parses a JSON numeric value from the file stream and returns a double.
+ *
+ * This function reads characters from the file stream until a non-numeric character is encountered,
+ * storing them in a buffer. The buffer is then null-terminated and parsed as a double value.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @param firstChar Initial wide character, expected to be the first character of the numeric value.
+ * @return Parsed double value.
+ * @note The buffer is null-terminated to form a string before parsing.
+ * @author Toby Benjamin Clark
+ */
+double wjson_parse_double(FILE* file, wint_t firstChar)
 {
-    wchar_t buffer[1024]; // Assuming a maximum length for the numerical value
+    wchar_t buffer[1024];
     int bufferIndex = 0;
 
     buffer[bufferIndex++] = firstChar;
 
+    /* Append characters while they are numerical */
     wint_t wchar;
-    while ((wchar = fgetwc(file)) != WEOF && (iswdigit(wchar) || wchar == L'.' || wchar == L'-')) {
+    while ((wchar = fgetwc(file)) != WEOF && (iswdigit(wchar) || wchar == L'.' || wchar == L'-'))
+    {
         buffer[bufferIndex++] = wchar;
     }
 
-    buffer[bufferIndex] = L'\0'; // Null-terminate the buffer to form a string
+    /* Null Terminate the Buffer */
+    buffer[bufferIndex] = L'\0';
 
+    /* Calculate & return result */
     double result;
     swscanf(buffer, L"%lf", &result);
     return result;
 }
 
-/*
- *  int bufferSize = snprintf(NULL, 0, L"%d", index);
-    wchar_t *buffer = (wchar_t *)malloc((bufferSize + 1) * sizeof(wchar_t));
-    swprintf(buffer, bufferSize + 1, L"%d", index);
-    new_node->key = wcsdup(buffer);
+/**
+ * @brief Parses a JSON array from the file stream and returns a wjson pointer.
+ *
+ * This function reads characters from the file stream, parsing values until the end of the array is reached.
+ * Parsed values are appended to a wjson list. The resulting wjson list is then returned.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @return wjson pointer to the parsed JSON array.
+ * @note The caller is responsible for freeing the allocated memory.
+ * @author Toby Benjamin Clark
  */
 struct wjson* wjson_parse_list(FILE* file)
 {
-
     wint_t wchar;
+    /* If the first character is not an opening square bracket, return NULL */
     if ((wchar = fgetwc(file)) != L'[') return NULL;
 
+    /* Initialize a wjson list to store parsed values */
     struct wjson* list_node = wjson_initialize_list();
 
-    while((wchar = fgetwc(file)) != L']' && wchar != WEOF)
+    /* Loop through characters until the end of the array or end of file is reached */
+    while ((wchar = fgetwc(file)) != L']' && wchar != WEOF)
     {
+        /* If the character is a double quote, parse a string value and append it to the list */
         if (wchar == L'"')
         {
             wchar_t* parsed_string = wjson_parse_value_string(file, wchar);
             wjson_list_append_string(list_node, parsed_string);
         }
+            /* If the character is an opening curly brace, parse an object value and append it to the list */
         else if (wchar == L'{')
         {
-            /* Parse subobject */
-            printf("subobj");
             ungetwc(wchar, file);
             wjson_list_append_object(list_node, wjson_parse_subobj(file));
         }
+            /* If the character is an opening square bracket, parse a nested array value and append it to the list */
         else if (wchar == L'[')
         {
-            /* Parse subobject */
-            printf("List");
             ungetwc(wchar, file);
             wjson_list_append_object(list_node, wjson_parse_list(file));
         }
-        else if (matchSequence(file, L"true"))
+            /* If the character sequence matches "true", parse a boolean true value and append it to the list */
+        else if (wjson_match_sequence(file, L"true"))
         {
-            printf("True\n");
             wjson_list_append_boolean(list_node, true);
         }
-        else if (matchSequence(file, L"false"))
+            /* If the character sequence matches "false", parse a boolean false value and append it to the list */
+        else if (wjson_match_sequence(file, L"false"))
         {
-            printf("False\n");
             wjson_list_append_boolean(list_node, false);
         }
-        else if (matchSequence(file, L"null"))
+            /* If the character sequence matches "null", parse a null value and append it to the list */
+        else if (wjson_match_sequence(file, L"null"))
         {
-            printf("Null\n");
+            wjson_list_append_string(list_node, L"null");
         }
+            /* If the character is a digit, dot, or minus sign, parse a numerical value and append it to the list */
         else if (iswdigit(wchar) || wchar == L'.' || wchar == L'-')
         {
-            double parsedValue = parseDouble(file, wchar);
-            wprintf(L"%f\n", parsedValue);
+            double parsedValue = wjson_parse_double(file, wchar);
             wjson_list_append_numerical(list_node, parsedValue);
         }
+            /* Continue to the next character if none of the conditions are met */
         else
         {
             continue;
@@ -134,52 +191,68 @@ struct wjson* wjson_parse_list(FILE* file)
     return list_node;
 }
 
+/**
+ * @brief Parses a JSON value from the file stream and appends it to a wjson node.
+ *
+ * This function reads characters from the file stream, determining the type of JSON value,
+ * and appends it to the provided wjson node using the specified key.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @param key Array of wide characters representing the key associated with the JSON value.
+ * @param wjson_node Pointer to the wjson node to which the parsed value will be appended.
+ * @note The key is used for identifying the field within the wjson node.
+ * @note The caller is responsible for freeing the allocated memory for the key.
+ * @note If a string value is parsed, its memory is allocated on the stack and must be used with caution.
+ * @author Toby Benjamin Clark
+ */
 void wjson_parse_value(FILE* file, wint_t key[1024], struct wjson* wjson_node)
 {
     wint_t wchar;
     while ((wchar = fgetwc(file)) != WEOF)
     {
-        if(wchar == L'"')
+        /* If the character is a double quote, parse a string value */
+        if (wchar == L'"')
         {
             wchar_t* parsed_string = wjson_parse_value_string(file, wchar);
             wjson_append_string(wjson_node, key, parsed_string);
             return;
         }
-        else if(wchar == L'{')
+            /* If the character is an opening curly brace, parse an object value */
+        else if (wchar == L'{')
         {
-            printf("subobj");
             ungetwc(wchar, file);
             wjson_append_object(wjson_node, key, wjson_parse_subobj(file));
             return;
         }
-        else if(wchar == L'[')
+            /* If the character is an opening square bracket, parse an array value */
+        else if (wchar == L'[')
         {
-            /* Parse subobject */
-            printf("List");
             ungetwc(wchar, file);
             wjson_append_list(wjson_node, key, wjson_parse_list(file));
             return;
         }
-        else if(matchSequence(file, L"true"))
+            /* If the character sequence matches "true", parse a boolean true value */
+        else if (wjson_match_sequence(file, L"true"))
         {
-            printf("True\n");
             wjson_append_boolean(wjson_node, key, true);
             return;
         }
-        else if(matchSequence(file, L"false"))
+            /* If the character sequence matches "false", parse a boolean false value */
+        else if (wjson_match_sequence(file, L"false"))
         {
-            printf("False\n");
             wjson_append_boolean(wjson_node, key, false);
             return;
         }
-        else if(matchSequence(file, L"null"))
+            /* If the character sequence matches "null", parse a null value */
+        else if (wjson_match_sequence(file, L"null"))
         {
             wjson_append_string(wjson_node, key, L"null");
             return;
         }
-        else if(iswdigit(wchar) || wchar == L'.' || wchar == L'-')
+            /* If the character is a digit, dot, or minus sign, parse a numerical value */
+        else if (iswdigit(wchar) || wchar == L'.' || wchar == L'-')
         {
-            double parsedValue = parseDouble(file, wchar);
+            double parsedValue = wjson_parse_double(file, wchar);
             wjson_append_numerical(wjson_node, key, parsedValue);
             return;
         }
@@ -187,6 +260,18 @@ void wjson_parse_value(FILE* file, wint_t key[1024], struct wjson* wjson_node)
     }
 }
 
+/**
+ * @brief Parses a JSON key and its associated value from the file stream.
+ *
+ * This function reads characters from the file stream, parsing a key and its associated value.
+ * The parsed key and value are then appended to the given wjson node.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @param wchar Initial wide character, expected to be the opening double quote of the key.
+ * @param wjson_node Pointer to the wjson node to which the parsed key and value will be appended.
+ * @note The parsed key is expected to be a string, and its memory is allocated on the stack.
+ * @author Toby Benjamin Clark
+ */
 void wjson_parse_key(FILE* file, wint_t wchar, struct wjson* wjson_node)
 {
     if (wchar != L'"') return;
@@ -208,6 +293,17 @@ void wjson_parse_key(FILE* file, wint_t wchar, struct wjson* wjson_node)
     wjson_parse_value(file, buffer, wjson_node);
 }
 
+/**
+ * @brief Parses a JSON object from the file stream and returns a wjson pointer.
+ *
+ * This function reads characters from the file stream, parsing key-value pairs until the end of the object is reached.
+ * Parsed key-value pairs are appended to a wjson object. The resulting wjson object is then returned.
+ *
+ * @param file FILE pointer to the input JSON file.
+ * @return wjson pointer to the parsed JSON object.
+ * @note The caller is responsible for freeing the allocated memory.
+ * @author Toby Benjamin Clark
+ */
 struct wjson* wjson_parse_subobj(FILE* file)
 {
     struct wjson* wjson_node = wjson_initialize();
@@ -223,6 +319,17 @@ struct wjson* wjson_parse_subobj(FILE* file)
     return wjson_node;
 }
 
+/**
+ * @brief Parses a JSON file and returns a wjson pointer representing the entire JSON structure.
+ *
+ * This function opens the specified JSON file, parses its contents, and returns a wjson pointer
+ * representing the entire JSON structure. The caller is responsible for freeing the allocated memory.
+ *
+ * @param filename Name of the JSON file to parse.
+ * @return wjson pointer to the parsed JSON structure.
+ * @note Memory allocation failure results in an error message and program exit.
+ * @author Toby Benjamin Clark
+ */
 struct wjson* wjson_parse(const char* filename)
 {
     FILE* file = fopen(filename, "r");
