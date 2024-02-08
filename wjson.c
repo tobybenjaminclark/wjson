@@ -6,6 +6,53 @@
 
 #include "wjson.h"
 
+void wjson_parse_key(FILE* file, wint_t wchar)
+{
+    if (wchar == L'"')
+    {
+        wprintf(L"Speech marks!\n");
+
+        // Accumulate characters into a buffer until closing double quote is encountered
+        wint_t buffer[1024];
+        int bufferIndex = 0;
+
+        while ((wchar = fgetwc(file)) != WEOF && wchar != L'"')
+        {
+            buffer[bufferIndex++] = wchar;
+        }
+
+        buffer[bufferIndex] = L'\0'; // Null-terminate the buffer to form a string
+        wprintf(L"Key: %ls\n", buffer);
+
+        /* Parse : */
+        while ((wchar = fgetwc(file)) != WEOF && wchar != L':')
+        {
+            continue;
+        }
+    }
+}
+
+void wjson_parse(const char* filename)
+{
+    FILE* file = fopen(filename, "r");
+
+    if (file == NULL) {
+        wprintf(L"Error opening file: %s\n", filename);
+        return;
+    }
+
+    wint_t wchar;
+    while ((wchar = fgetwc(file)) != WEOF)
+    {
+        wjson_parse_key(file, wchar);
+    }
+
+    fclose(file);
+}
+
+
+
+
 void wjson_print_indentation(int indentation)
 {
     int indentation_counter = 0;
@@ -532,6 +579,8 @@ int wjson_list_append_boolean(struct wjson* wjson_node, bool value)
 
 void wjson_test()
 {
+    wjson_parse("test.json");
+
     struct wjson* test = wjson_initialize();
     wjson_append_string(test, L"Key1", L"Val1");
     wjson_append_numerical(test, L"Key2", 32);
