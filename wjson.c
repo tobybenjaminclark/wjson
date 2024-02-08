@@ -147,7 +147,6 @@ void wjson_parse_value(FILE* file, wint_t key[1024], struct wjson* wjson_node)
         }
         else if(wchar == L'{')
         {
-            /* Parse subobject */
             printf("subobj");
             ungetwc(wchar, file);
             wjson_append_object(wjson_node, key, wjson_parse_subobj(file));
@@ -175,20 +174,17 @@ void wjson_parse_value(FILE* file, wint_t key[1024], struct wjson* wjson_node)
         }
         else if(matchSequence(file, L"null"))
         {
-
-            printf("Null\n");
+            wjson_append_string(wjson_node, key, L"null");
             return;
         }
         else if(iswdigit(wchar) || wchar == L'.' || wchar == L'-')
         {
             double parsedValue = parseDouble(file, wchar);
-            wprintf(L"%f\n", parsedValue);
             wjson_append_numerical(wjson_node, key, parsedValue);
             return;
         }
         continue;
     }
-    printf(": value \n");
 }
 
 void wjson_parse_key(FILE* file, wint_t wchar, struct wjson* wjson_node)
@@ -335,10 +331,20 @@ void wjson_print(struct wjson* head, int indentation)
     wprintf(L"}");
 }
 
+∂
 
 
-
-
+/*
+ * @brief Initializes a new wjson instance and allocates memory for it.
+ *
+ * This function allocates memory for a new wjson instance, initializes its
+ * members to default values (NULL, 0, false), and returns a pointer to the
+ * newly created instance.
+ *
+ * @return Pointer to the newly initialized wjson instance.
+ * @note Memory allocation failure results in an error message and program exit.
+ * @author Toby Benjamin Clark
+ */
 struct wjson* wjson_initialize()
 {
     /* Allocating Memory for new struct wjson pointer */
@@ -364,6 +370,20 @@ struct wjson* wjson_initialize()
     return new_node;
 }
 
+/* @
+ * @brief Appends a new string element to the wjson structure.
+ *
+ * This function appends a new wjson node with string data to the end of the
+ * provided wjson_node list. It allocates memory for the key and value, sets
+ * the necessary fields, and updates the list pointers accordingly.
+ *
+ * @param wjson_node The head of the wjson list to which the new element will be appended.
+ * @param key The key for the new element.
+ * @param value The string value for the new element.
+ * @return 1 on success, 0 on memory allocation failure.
+ * @note Memory allocation failure results in an error message and returns 0.
+ * @author Toby Benjamin Clark
+ */
 int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
 {
     /* Go to the end of the list */
@@ -381,6 +401,8 @@ int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
     }
 
     new_node->type = WJSON_TYPE_STRING;
+
+    /* Allocate memory for the key and copy its value */
     new_node->key = wcsdup(key);
     if (new_node->key == NULL)
     {
@@ -389,6 +411,7 @@ int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
         return 0;
     }
 
+    /* Allocate memory for the string value and copy its value */
     new_node->data_string = wcsdup(value);
     if (new_node->data_string == NULL)
     {
@@ -401,6 +424,21 @@ int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value)
     return 1;
 }
 
+/* @function wjson_append_object
+ * @brief Appends a new object element to the wjson structure.
+ *
+ * This function appends a new wjson node with object data to the end of the
+ * provided wjson_node list. It allocates memory for the key, sets the necessary
+ * fields, and updates the list pointers accordingly. The data_object field is
+ * updated to point to the provided value.
+ *
+ * @param wjson_node The head of the wjson list to which the new element will be appended.
+ * @param key The key for the new element.
+ * @param value The wjson node representing the object value.
+ * @return 1 on success, 0 on memory allocation failure.
+ * @note Memory allocation failure results in an error message and returns 0.
+ * @author Toby Benjamin Clark
+ */
 int wjson_append_object(struct wjson* wjson_node, wchar_t* key, struct wjson* value)
 {
     /* Go to the end of the list */
@@ -418,6 +456,8 @@ int wjson_append_object(struct wjson* wjson_node, wchar_t* key, struct wjson* va
     }
 
     new_node->type = WJSON_TYPE_OBJECT;
+
+    /* Allocate memory for the key and copy its value */
     new_node->key = wcsdup(key);
     if (new_node->key == NULL)
     {
@@ -426,12 +466,27 @@ int wjson_append_object(struct wjson* wjson_node, wchar_t* key, struct wjson* va
         return 0;
     }
 
-    /* Update data_object to value */
+    /* Update data_object to point to the provided value */
     new_node->data_object = value;
 
     return 1;
 }
 
+/* @function wjson_append_list
+ * @brief Appends a new list element to the wjson structure.
+ *
+ * This function appends a new wjson node with list data to the end of the
+ * provided wjson_node list. It allocates memory for the key, sets the necessary
+ * fields, and updates the list pointers accordingly. The data_object field is
+ * updated to point to the provided value.
+ *
+ * @param wjson_node The head of the wjson list to which the new element will be appended.
+ * @param key The key for the new element.
+ * @param value The wjson node representing the list value.
+ * @return 1 on success, 0 on memory allocation failure.
+ * @note Memory allocation failure results in an error message and returns 0.
+ * @author Toby Benjamin Clark
+ */
 int wjson_append_list(struct wjson* wjson_node, wchar_t* key, struct wjson* value)
 {
     /* Go to the end of the list */
@@ -449,6 +504,8 @@ int wjson_append_list(struct wjson* wjson_node, wchar_t* key, struct wjson* valu
     }
 
     new_node->type = WJSON_TYPE_LIST;
+
+    /* Allocate memory for the key and copy its value */
     new_node->key = wcsdup(key);
     if (new_node->key == NULL)
     {
@@ -457,12 +514,27 @@ int wjson_append_list(struct wjson* wjson_node, wchar_t* key, struct wjson* valu
         return 0;
     }
 
-    /* Update data_object to value */
+    /* Update data_object to point to the provided value */
     new_node->data_object = value;
 
     return 1;
 }
 
+/* @function wjson_append_numerical
+ * @brief Appends a new numerical element to the wjson structure.
+ *
+ * This function appends a new wjson node with numerical data to the end of the
+ * provided wjson_node list. It allocates memory for the key, sets the necessary
+ * fields, and updates the list pointers accordingly. The data_numerical field
+ * is updated to the provided value.
+ *
+ * @param wjson_node The head of the wjson list to which the new element will be appended.
+ * @param key The key for the new element.
+ * @param value The numerical value for the new element.
+ * @return 1 on success, 0 on memory allocation failure.
+ * @note Memory allocation failure results in an error message and returns 0.
+ * @author Toby Benjamin Clark
+ */
 int wjson_append_numerical(struct wjson* wjson_node, wchar_t* key, double value)
 {
     /* Go to the end of the list */
@@ -480,6 +552,8 @@ int wjson_append_numerical(struct wjson* wjson_node, wchar_t* key, double value)
     }
 
     new_node->type = WJSON_TYPE_NUMERICAL;
+
+    /* Allocate memory for the key and copy its value */
     new_node->key = wcsdup(key);
     if (new_node->key == NULL)
     {
@@ -488,12 +562,27 @@ int wjson_append_numerical(struct wjson* wjson_node, wchar_t* key, double value)
         return 0;
     }
 
-    /* Update data_object to value */
+    /* Update data_numerical to the provided value */
     new_node->data_numerical = value;
 
     return 1;
 }
 
+/* @function wjson_append_boolean
+ * @brief Appends a new boolean element to the wjson structure.
+ *
+ * This function appends a new wjson node with boolean data to the end of the
+ * provided wjson_node list. It allocates memory for the key, sets the necessary
+ * fields, and updates the list pointers accordingly. The data_bool field is
+ * updated to the provided value.
+ *
+ * @param wjson_node The head of the wjson list to which the new element will be appended.
+ * @param key The key for the new element.
+ * @param value The boolean value for the new element.
+ * @return 1 on success, 0 on memory allocation failure.
+ * @note Memory allocation failure results in an error message and returns 0.
+ * @author Toby Benjamin Clark
+ */
 int wjson_append_boolean(struct wjson* wjson_node, wchar_t* key, bool value)
 {
     /* Go to the end of the list */
@@ -511,6 +600,8 @@ int wjson_append_boolean(struct wjson* wjson_node, wchar_t* key, bool value)
     }
 
     new_node->type = WJSON_TYPE_BOOLEAN;
+
+    /* Allocate memory for the key and copy its value */
     new_node->key = wcsdup(key);
     if (new_node->key == NULL)
     {
@@ -519,7 +610,7 @@ int wjson_append_boolean(struct wjson* wjson_node, wchar_t* key, bool value)
         return 0;
     }
 
-    /* Update data_object to value */
+    /* Update data_bool to the provided value */
     new_node->data_bool = value;
 
     return 1;

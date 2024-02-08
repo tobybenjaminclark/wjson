@@ -20,7 +20,14 @@
 #define WJSON_TYPE_LIST 5
 #define WJSON_TYPE_NULL 6
 
-
+/*
+ * @brief Represents a node in a wJSON structure.
+ *
+ * This struct is used to create a tree-like structure to represent JSON data,
+ * with support for wide characters. It includes fields for type information,
+ * previous and next pointers for navigating the tree, a key for object members,
+ * and a union for different data types (string, numerical, object, list, boolean).
+ */
 struct wjson
 {
     unsigned short int type;
