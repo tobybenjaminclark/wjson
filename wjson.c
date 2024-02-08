@@ -60,6 +60,9 @@ int wjson_match_sequence(FILE* file, const wchar_t* sequence)
 }
 
 
+
+
+
 /**
  * @brief Parses a JSON string value from the file stream and returns a wchar_t pointer.
  *
@@ -349,21 +352,40 @@ struct wjson* wjson_parse(const char* filename)
 
 
 
+
+/**
+ * @brief Prints indentation spaces based on the specified indentation level.
+ *
+ * This function prints indentation spaces to the standard output based on the specified indentation level.
+ *
+ * @param indentation Number of indentation levels to be printed.
+ */
 void wjson_print_indentation(int indentation)
 {
     int indentation_counter = 0;
-    for(indentation_counter = 0; indentation_counter < indentation; indentation_counter++)
+    for (indentation_counter = 0; indentation_counter < indentation; indentation_counter++)
         wprintf(L"\t");
     return;
 }
 
+/**
+ * @brief Prints a JSON list to the standard output with specified indentation.
+ *
+ * This function recursively prints the elements of a JSON list to the standard output with proper indentation.
+ *
+ * @param head Pointer to the head of the wjson list.
+ * @param indentation Number of indentation levels for proper formatting.
+ */
 void wjson_print_list(struct wjson* head, int indentation)
 {
     struct wjson* current = head;
     wprintf(L"[\n");
+
     while (current != NULL)
     {
+        /* Print indentation for each element in the list */
         wjson_print_indentation(indentation + 1);
+
         switch (current->type)
         {
             case WJSON_TYPE_NUMERICAL:
@@ -373,13 +395,15 @@ void wjson_print_list(struct wjson* head, int indentation)
                 wprintf(L"\"%ls\"", current->data_string);
                 break;
             case WJSON_TYPE_BOOLEAN:
-                if(current->data_bool) wprintf(L"true");
+                if (current->data_bool) wprintf(L"true");
                 else wprintf(L"false");
                 break;
             case WJSON_TYPE_OBJECT:
+                /* Recursively print an object */
                 wjson_print(current->data_object, indentation + 1);
                 break;
             case WJSON_TYPE_LIST:
+                /* Recursively print a nested list */
                 wjson_print_list(current->data_list, indentation + 1);
                 break;
             case WJSON_TYPE_NULL:
@@ -387,24 +411,39 @@ void wjson_print_list(struct wjson* head, int indentation)
                 break;
         }
 
-        /* If not the last entry */
-        if(current->next != NULL) wprintf(L",");
-        printf("\n");
+        /* If not the last entry, print a comma and a new line */
+        if (current->next != NULL) wprintf(L",");
+        wprintf(L"\n");
 
         current = current->next;
     }
+
+    /* Print indentation for the closing square bracket */
     wjson_print_indentation(indentation);
     wprintf(L"]");
 }
 
+/**
+ * @brief Prints a JSON object to the standard output with specified indentation.
+ *
+ * This function recursively prints the key-value pairs of a JSON object to the standard output with proper indentation.
+ *
+ * @param head Pointer to the head of the wjson object.
+ * @param indentation Number of indentation levels for proper formatting.
+ */
 void wjson_print(struct wjson* head, int indentation)
 {
     struct wjson* current = head;
     wprintf(L"{\n");
+
     while (current != NULL)
     {
+        /* Print indentation for each key-value pair in the object */
         wjson_print_indentation(indentation + 1);
-        printf("\"%ls\" : ", current->key);
+
+        /* Print the key */
+        wprintf(L"\"%ls\" : ", current->key);
+
         switch (current->type)
         {
             case WJSON_TYPE_NUMERICAL:
@@ -414,13 +453,15 @@ void wjson_print(struct wjson* head, int indentation)
                 wprintf(L"\"%ls\"", current->data_string);
                 break;
             case WJSON_TYPE_BOOLEAN:
-                if(current->data_bool) wprintf(L"true");
+                if (current->data_bool) wprintf(L"true");
                 else wprintf(L"false");
                 break;
             case WJSON_TYPE_OBJECT:
+                /* Recursively print a nested object */
                 wjson_print(current->data_object, indentation + 1);
                 break;
             case WJSON_TYPE_LIST:
+                /* Recursively print a nested list */
                 wjson_print_list(current->data_list, indentation + 1);
                 break;
             case WJSON_TYPE_NULL:
@@ -428,15 +469,18 @@ void wjson_print(struct wjson* head, int indentation)
                 break;
         }
 
-        /* If not the last entry */
-        if(current->next != NULL) wprintf(L",");
-        printf("\n");
+        /* If not the last entry, print a comma and a new line */
+        if (current->next != NULL) wprintf(L",");
+        wprintf(L"\n");
 
         current = current->next;
     }
+
+    /* Print indentation for the closing curly brace */
     wjson_print_indentation(indentation);
     wprintf(L"}");
 }
+
 
 
 
@@ -1052,8 +1096,11 @@ int wjson_list_append_boolean(struct wjson* wjson_node, bool value)
 
 
 
-
-
+/**
+ * @brief Test Function for JSON Functions
+ *
+ * @note Requires test.json in build folder.
+ */
 void wjson_test()
 {
     struct wjson* test_parse = wjson_parse("test.json");
