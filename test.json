@@ -1,12 +1,8 @@
 
 {
   "Key1" : "Val1",
-  "Key2" : 32.000000,
   "Key3" : true,
-  "ListKey" : [
-    "ListVal1",
-    "ListVal2"
-  ],
+  "Key2" : 32.000000,
   "Nest!" : {
     "Nested1" : "NestedVal1",
     "Nested2" : "NestedVal2"

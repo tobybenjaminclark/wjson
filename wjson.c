@@ -6,48 +6,241 @@
 
 #include "wjson.h"
 
-void wjson_parse_key(FILE* file, wint_t wchar)
+int matchSequence(FILE* file, const wchar_t* sequence)
 {
-    if (wchar == L'"')
-    {
-        wprintf(L"Speech marks!\n");
+    int index = 0;
+    wint_t wchar;
+    wint_t buffer[1024]; // Assuming a maximum sequence length of 1023 characters
+    int bufferIndex = 0;
 
-        // Accumulate characters into a buffer until closing double quote is encountered
-        wint_t buffer[1024];
-        int bufferIndex = 0;
+    // Save the current file position
+    long startPos = ftell(file);
 
-        while ((wchar = fgetwc(file)) != WEOF && wchar != L'"')
-        {
-            buffer[bufferIndex++] = wchar;
+    while ((wchar = fgetwc(file)) != WEOF && sequence[index] != L'\0') {
+        if (wchar != sequence[index]) {
+            // Characters do not match, put them back into the stream
+            while (bufferIndex > 0) {
+                ungetwc(buffer[--bufferIndex], file);
+            }
+            // Restore the file position to the initial position
+            fseek(file, startPos, SEEK_SET);
+            return 0; // Return failure
         }
+        buffer[bufferIndex++] = wchar;
+        index++;
+    }
 
-        buffer[bufferIndex] = L'\0'; // Null-terminate the buffer to form a string
-        wprintf(L"Key: %ls\n", buffer);
+    if (sequence[index] == L'\0') {
+        return 1; // Return success if end of sequence is reached
+    } else {
+        // Restore the file position to the initial position
+        fseek(file, startPos, SEEK_SET);
+        return 0; // Return failure if end of file is reached before the full sequence
+    }
+}
 
-        /* Parse : */
-        while ((wchar = fgetwc(file)) != WEOF && wchar != L':')
+wchar_t* wjson_parse_value_string(FILE* file, wint_t wchar)
+{
+    wint_t buffer[1024];
+    int bufferIndex = 0;
+
+    while ((wchar = fgetwc(file)) != WEOF && wchar != L'"') buffer[bufferIndex++] = wchar;
+
+    /* Null Terminate String */
+    buffer[bufferIndex] = L'\0';
+    wprintf(L"v\"%ls\"\n", buffer);
+    return buffer;
+}
+
+double parseDouble(FILE* file, wint_t firstChar)
+{
+    wchar_t buffer[1024]; // Assuming a maximum length for the numerical value
+    int bufferIndex = 0;
+
+    buffer[bufferIndex++] = firstChar;
+
+    wint_t wchar;
+    while ((wchar = fgetwc(file)) != WEOF && (iswdigit(wchar) || wchar == L'.' || wchar == L'-')) {
+        buffer[bufferIndex++] = wchar;
+    }
+
+    buffer[bufferIndex] = L'\0'; // Null-terminate the buffer to form a string
+
+    double result;
+    swscanf(buffer, L"%lf", &result);
+    return result;
+}
+
+/*
+ *  int bufferSize = snprintf(NULL, 0, L"%d", index);
+    wchar_t *buffer = (wchar_t *)malloc((bufferSize + 1) * sizeof(wchar_t));
+    swprintf(buffer, bufferSize + 1, L"%d", index);
+    new_node->key = wcsdup(buffer);
+ */
+struct wjson* wjson_parse_list(FILE* file)
+{
+
+    wint_t wchar;
+    if ((wchar = fgetwc(file)) != L'[') return NULL;
+
+    struct wjson* list_node = wjson_initialize_list();
+
+    while((wchar = fgetwc(file)) != L']' && wchar != WEOF)
+    {
+        if (wchar == L'"')
+        {
+            wchar_t* parsed_string = wjson_parse_value_string(file, wchar);
+            wjson_list_append_string(list_node, parsed_string);
+        }
+        else if (wchar == L'{')
+        {
+            /* Parse subobject */
+            printf("subobj");
+            ungetwc(wchar, file);
+            wjson_list_append_object(list_node, wjson_parse_subobj(file));
+        }
+        else if (wchar == L'[')
+        {
+            /* Parse subobject */
+            printf("List");
+            ungetwc(wchar, file);
+            wjson_list_append_object(list_node, wjson_parse_list(file));
+        }
+        else if (matchSequence(file, L"true"))
+        {
+            printf("True\n");
+            wjson_list_append_boolean(list_node, true);
+        }
+        else if (matchSequence(file, L"false"))
+        {
+            printf("False\n");
+            wjson_list_append_boolean(list_node, false);
+        }
+        else if (matchSequence(file, L"null"))
+        {
+            printf("Null\n");
+        }
+        else if (iswdigit(wchar) || wchar == L'.' || wchar == L'-')
+        {
+            double parsedValue = parseDouble(file, wchar);
+            wprintf(L"%f\n", parsedValue);
+            wjson_list_append_numerical(list_node, parsedValue);
+        }
+        else
         {
             continue;
         }
     }
+    return list_node;
 }
 
-void wjson_parse(const char* filename)
+void wjson_parse_value(FILE* file, wint_t key[1024], struct wjson* wjson_node)
 {
-    FILE* file = fopen(filename, "r");
-
-    if (file == NULL) {
-        wprintf(L"Error opening file: %s\n", filename);
-        return;
-    }
-
     wint_t wchar;
     while ((wchar = fgetwc(file)) != WEOF)
     {
-        wjson_parse_key(file, wchar);
+        if(wchar == L'"')
+        {
+            wchar_t* parsed_string = wjson_parse_value_string(file, wchar);
+            wjson_append_string(wjson_node, key, parsed_string);
+            return;
+        }
+        else if(wchar == L'{')
+        {
+            /* Parse subobject */
+            printf("subobj");
+            ungetwc(wchar, file);
+            wjson_append_object(wjson_node, key, wjson_parse_subobj(file));
+            return;
+        }
+        else if(wchar == L'[')
+        {
+            /* Parse subobject */
+            printf("List");
+            ungetwc(wchar, file);
+            wjson_append_list(wjson_node, key, wjson_parse_list(file));
+            return;
+        }
+        else if(matchSequence(file, L"true"))
+        {
+            printf("True\n");
+            wjson_append_boolean(wjson_node, key, true);
+            return;
+        }
+        else if(matchSequence(file, L"false"))
+        {
+            printf("False\n");
+            wjson_append_boolean(wjson_node, key, false);
+            return;
+        }
+        else if(matchSequence(file, L"null"))
+        {
+
+            printf("Null\n");
+            return;
+        }
+        else if(iswdigit(wchar) || wchar == L'.' || wchar == L'-')
+        {
+            double parsedValue = parseDouble(file, wchar);
+            wprintf(L"%f\n", parsedValue);
+            wjson_append_numerical(wjson_node, key, parsedValue);
+            return;
+        }
+        continue;
     }
+    printf(": value \n");
+}
+
+void wjson_parse_key(FILE* file, wint_t wchar, struct wjson* wjson_node)
+{
+    if (wchar != L'"') return;
+
+    /* Accumulate characters into a buffer until closing double quote is encountered */
+    wint_t buffer[1024];
+    int bufferIndex = 0;
+
+    while ((wchar = fgetwc(file)) != WEOF && wchar != L'"') buffer[bufferIndex++] = wchar;
+
+    /* Null Terminate String */
+    buffer[bufferIndex] = L'\0';
+    wprintf(L"k\"%ls\"   ", buffer);
+
+    /* Parse : */
+    while ((wchar = fgetwc(file)) != WEOF && wchar != L':') continue;
+
+    /* Parse Value */
+    wjson_parse_value(file, buffer, wjson_node);
+}
+
+struct wjson* wjson_parse_subobj(FILE* file)
+{
+    struct wjson* wjson_node = wjson_initialize();
+
+    printf("\nSUBOBJ\n");
+    wint_t wchar;
+    while ((wchar = fgetwc(file)) != WEOF && wchar != L'{') continue;
+    while ((wchar = fgetwc(file)) != WEOF && wchar != L'}')
+    {
+        wjson_parse_key(file, wchar, wjson_node);
+    }
+    printf("END SUBOBJ\n");
+    return wjson_node;
+}
+
+struct wjson* wjson_parse(const char* filename)
+{
+    FILE* file = fopen(filename, "r");
+
+    if (file == NULL)
+    {
+        wprintf(L"Error opening file: %s\n", filename);
+        return NULL;
+    }
+    struct wjson* wjson_node = wjson_parse_subobj(file);
+
 
     fclose(file);
+    return wjson_node;
 }
 
 
@@ -579,7 +772,8 @@ int wjson_list_append_boolean(struct wjson* wjson_node, bool value)
 
 void wjson_test()
 {
-    wjson_parse("test.json");
+    struct wjson* test_parse = wjson_parse("test.json");
+    wjson_print(test_parse, 0);
 
     struct wjson* test = wjson_initialize();
     wjson_append_string(test, L"Key1", L"Val1");

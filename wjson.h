@@ -37,6 +37,21 @@ struct wjson
     };
 };
 
+struct wjson* wjson_initialize_list();
+int wjson_list_append_string(struct wjson* wjson_node, wchar_t* value);
+int wjson_list_append_object(struct wjson* wjson_node, struct wjson* value);
+int wjson_list_append_numerical(struct wjson* wjson_node, double value);
+int wjson_list_append_list(struct wjson* wjson_node, struct wjson* value);
+int wjson_list_append_boolean(struct wjson* wjson_node, bool value);
+
+struct wjson* wjson_initialize();
+struct wjson* wjson_parse_subobj(FILE* file);
+int wjson_append_string(struct wjson* wjson_node, wchar_t* key, wchar_t* value);
+int wjson_append_object(struct wjson* wjson_node, wchar_t* key, struct wjson* value);
+int wjson_append_list(struct wjson* wjson_node, wchar_t* key, struct wjson* value);
+int wjson_append_numerical(struct wjson* wjson_node, wchar_t* key, double value);
+int wjson_append_boolean(struct wjson* wjson_node, wchar_t* key, bool value);
+
 void wjson_print(struct wjson* head, int indentation);
 void wjson_test();
 
